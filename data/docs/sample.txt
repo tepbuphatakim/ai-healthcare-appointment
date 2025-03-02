@@ -1,0 +1,7 @@
+
+            Artificial Intelligence (AI) is the simulation of human intelligence by machines.
+            Machine Learning is a subset of AI that enables systems to learn from data.
+            Deep Learning is a type of Machine Learning that uses neural networks with multiple layers.
+            Natural Language Processing (NLP) is a branch of AI that helps machines understand human language.
+            Computer Vision is an AI field that enables machines to derive information from visual data.
+            
