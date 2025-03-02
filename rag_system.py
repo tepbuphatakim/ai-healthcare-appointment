@@ -98,7 +98,7 @@ class RAGSystem:
         if not self.qa_chain:
             raise ValueError("RAG system not initialized. Call initialize() first.")
         
-        result = self.qa_chain({"query": question})
+        result = self.qa_chain.invoke({"query": question})
         return {
             "answer": result["result"],
             "sources": [doc.metadata for doc in result["source_documents"]]
