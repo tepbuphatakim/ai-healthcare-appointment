@@ -1,10 +1,11 @@
 import os
 from typing import List, Dict, Any
-from langchain_community.document_loaders import TextLoader, DirectoryLoader
+from flask import Flask, request, jsonify
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import Chroma
-from langchain_community.llms import Ollama
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_ollama import OllamaLLM
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
@@ -52,24 +53,35 @@ class RAGSystem:
             embedding=embeddings,
             persist_directory=self.db_dir
         )
-        self.vectorstore.persist()
         print(f"Created vector store at {self.db_dir}")
 
     def setup_qa_chain(self):
         """Set up the QA chain with Ollama."""
         # Initialize Ollama with the specified model
-        llm = Ollama(model="llama3.2:1b")
+        llm = OllamaLLM(model="llama3.2:1b")
         
         # Create prompt template
-        prompt_template = """
-        Answer the question based on the provided context. If you cannot find 
-        the answer in the context, say "I don't have enough information to answer this question."
-        
+        prompt_template = """You are a helpful hospital assistant that helps patients find the right specialist and schedule appointments. Use the provided hospital information to assist patients.
+
+        If you cannot find specific information in the context, say "I apologize, but I don't have enough information about that. Please contact our hospital directly at [contact number] for more details."
+
+        When suggesting doctors:
+        1. Consider their specialization and expertise
+        2. Check their available working hours
+        3. Mention their languages spoken
+        4. Note any emergency consultation availability
+
+        When discussing scheduling:
+        1. Mention the doctor's regular working hours
+        2. Specify if booking is required
+        3. Provide relevant contact information
+        4. Note any special instructions for appointments
+
         Context: {context}
-        
-        Question: {question}
-        
-        Answer:"""
+
+        Patient Question: {question}
+
+        Assistant Response:"""
         
         PROMPT = PromptTemplate(
             template=prompt_template,
@@ -104,38 +116,40 @@ class RAGSystem:
             "sources": [doc.metadata for doc in result["source_documents"]]
         }
 
-def main():
-    # Initialize the RAG system
-    rag = RAGSystem()
-    
-    # Create a sample document if none exists
-    # if not os.path.exists("data/docs/sample.txt"):
-    #     os.makedirs("data/docs", exist_ok=True)
-    #     with open("data/docs/sample.txt", "w") as f:
-    #         f.write("""
-    #         Artificial Intelligence (AI) is the simulation of human intelligence by machines.
-    #         Machine Learning is a subset of AI that enables systems to learn from data.
-    #         Deep Learning is a type of Machine Learning that uses neural networks with multiple layers.
-    #         Natural Language Processing (NLP) is a branch of AI that helps machines understand human language.
-    #         Computer Vision is an AI field that enables machines to derive information from visual data.
-    #         """)
+app = Flask(__name__)
+rag_system = RAGSystem()
+rag_system.initialize()
 
-    # Initialize the system
-    rag.initialize()
+@app.route('/api/query', methods=['POST'])
+def api_query():
+    """API endpoint for querying the RAG system."""
+    data = request.json
+    if not data or 'question' not in data:
+        return jsonify({"error": "Missing 'question' in request"}), 400
     
-    # Interactive query loop
-    print("\nRAG System Ready! Type 'exit' to quit.")
-    while True:
-        question = input("\nEnter your question: ")
-        if question.lower() == "exit":
-            break
-            
-        try:
-            result = rag.query(question)
-            print("\nAnswer:", result["answer"])
-            print("\nSources:", result["sources"])
-        except Exception as e:
-            print(f"Error: {e}")
+    try:
+        result = rag_system.query(data['question'])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """API endpoint for checking system health."""
+    return jsonify({
+        "status": "healthy",
+        "system_ready": rag_system.qa_chain is not None
+    })
+
+def main():
+    # Run the Flask app
+    print("\nStarting RAG API server on http://localhost:5000")
+    print("Available endpoints:")
+    print("  - POST /api/query")
+    print("  - GET /api/health")
+    print("\nExample usage:")
+    print('  curl -X POST http://localhost:5000/api/query -H "Content-Type: application/json" -d \'{"question": "When does Dr. Sopheak work?"}\'')
+    app.run(host='0.0.0.0', port=5000)
 
 if __name__ == "__main__":
     main() 
