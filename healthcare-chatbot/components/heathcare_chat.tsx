@@ -11,11 +11,12 @@ import { Badge } from "@/components/ui/badge";
 
 export function HealthcareChat() {
   const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
-    api: "/api/chat", // Points to the refined POST function
+    api: "/api/chat", // Points to the chat API for RAG interactions
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [appointmentLoading, setAppointmentLoading] = useState(false); // Track appointment creation state
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -28,6 +29,47 @@ export function HealthcareChat() {
       setShowWelcome(false);
     }
   }, [messages]);
+
+  // Function to handle appointment creation
+  const handleAppointmentCreation = async () => {
+    setAppointmentLoading(true);
+    try {
+      const appointmentData = {
+        appointmentType: "General Checkup", // Hardcoded for demo; could be dynamic
+        preferredDate: "2025-03-15",
+        preferredTime: "10:30",
+      };
+
+      const response = await fetch("/api/appointment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(appointmentData),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.details || result.error || "Failed to create appointment");
+      }
+
+      // Add success message to chat
+      handleInputChange({
+        target: {
+          value: `Appointment scheduled: ${result.appointment.type} on ${result.appointment.date} at ${result.appointment.time}`,
+        },
+      } as never); // Using 'any' instead of 'never' for type safety with useChat
+      handleSubmit({ preventDefault: () => {} } as never);
+    } catch (err) {
+      console.error("Appointment creation error:", err);
+      // Safely handle the error to avoid runtime issues
+      const errorMessage = err instanceof Error ? err.message : String(err) || "An unknown error occurred";
+      handleInputChange({ target: { value: `Error: ${errorMessage}` } } as never);
+      handleSubmit({ preventDefault: () => {} } as never);
+    } finally {
+      setAppointmentLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-[600px]">
@@ -54,19 +96,24 @@ export function HealthcareChat() {
                 variant="outline"
                 className="flex items-center justify-start gap-2"
                 onClick={() => {
-                  handleInputChange({ target: { value: "I need to schedule an appointment" } } as any);
-                  handleSubmit({ preventDefault: () => {} } as any);
+                  handleInputChange({ target: { value: "I need to schedule an appointment" } } as never);
+                  handleSubmit({ preventDefault: () => {} } as never);
                 }}
+                disabled={isLoading || appointmentLoading}
               >
                 <Calendar className="h-4 w-4" />
-                <span>Appointment</span>
+                {isLoading || appointmentLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span>Appointment</span>
+                )}
               </Button>
               <Button
                 variant="outline"
                 className="flex items-center justify-start gap-2"
                 onClick={() => {
-                  handleInputChange({ target: { value: "What are your available time slots?" } } as any);
-                  handleSubmit({ preventDefault: () => {} } as any);
+                  handleInputChange({ target: { value: "What are your available time slots?" } } as never);
+                  handleSubmit({ preventDefault: () => {} } as never);
                 }}
               >
                 <Clock className="h-4 w-4" />
@@ -76,8 +123,8 @@ export function HealthcareChat() {
                 variant="outline"
                 className="flex items-center justify-start gap-2"
                 onClick={() => {
-                  handleInputChange({ target: { value: "Where is your clinic located?" } } as any);
-                  handleSubmit({ preventDefault: () => {} } as any);
+                  handleInputChange({ target: { value: "Where is your clinic located?" } } as never);
+                  handleSubmit({ preventDefault: () => {} } as never);
                 }}
               >
                 <MapPin className="h-4 w-4" />
@@ -96,13 +143,51 @@ export function HealthcareChat() {
             >
               {message.content}
 
-              {/* Conditionally render appointment card based on assistant response */}
-              {message.role === "assistant" && message.content.toLowerCase().includes("appointment") && (
+              {/* Render suggested appointment card with Confirm button */}
+              {message.role === "assistant" &&
+                message.content.toLowerCase().includes("appointment") &&
+                !message.content.toLowerCase().includes("scheduled") && (
+                  <Card className="mt-4 p-4 bg-background">
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium">Suggested Appointment</h4>
+                        <Badge>Pending</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>March 15, 2025</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>10:30 AM</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>Main Clinic, Floor 3</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="mt-2"
+                        disabled={appointmentLoading || isLoading}
+                        onClick={handleAppointmentCreation}
+                      >
+                        {appointmentLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Confirm Appointment"
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+
+              {/* Render confirmed appointment card */}
+              {message.role === "assistant" && message.content.toLowerCase().includes("appointment scheduled") && (
                 <Card className="mt-4 p-4 bg-background">
                   <div className="flex flex-col space-y-2">
                     <div className="flex justify-between items-start">
-                      <h4 className="font-medium">Appointment Demo (Simulated)</h4>
-                      <Badge>Pending</Badge>
+                      <h4 className="font-medium">Appointment Confirmed</h4>
+                      <Badge>Scheduled</Badge>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -116,9 +201,6 @@ export function HealthcareChat() {
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       <span>Main Clinic, Floor 3</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      This is a demo. Contact the clinic to confirm real appointments.
-                    </p>
                   </div>
                 </Card>
               )}
@@ -155,7 +237,7 @@ export function HealthcareChat() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSubmit(e as any);
+                handleSubmit(e as never);
               }
             }}
           />
