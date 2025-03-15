@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("Incoming request body:", body); // Debug log
 
-    const { prompt } = "body";
+    const { prompt } = body;
 
     if (!prompt || typeof prompt !== "string") {
       console.log("Validation failed: prompt is", prompt); // Debug log

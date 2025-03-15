@@ -18,7 +18,6 @@ export function HealthcareChat() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [appointmentLoading, setAppointmentLoading] = useState(false);
 
-  // State for guided appointment creation
   const [isBookingAppointment, setIsBookingAppointment] = useState(false);
   const [appointmentStep, setAppointmentStep] = useState<number>(0);
   const [appointmentData, setAppointmentData] = useState({
@@ -54,7 +53,7 @@ export function HealthcareChat() {
     setIsBookingAppointment(true);
     setAppointmentStep(1);
     handleInputChange({ target: { value: "Please provide your name." } } as ChangeEvent<HTMLTextAreaElement>);
-    handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+    handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide your name." });
   };
 
   const handleAppointmentInput = (userInput: string) => {
@@ -63,19 +62,19 @@ export function HealthcareChat() {
         setAppointmentData((prev) => ({ ...prev, patientName: userInput }));
         setAppointmentStep(2);
         handleInputChange({ target: { value: "Please provide your phone number." } } as ChangeEvent<HTMLTextAreaElement>);
-        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide your phone number." });
         break;
       case 2:
         setAppointmentData((prev) => ({ ...prev, patientPhone: userInput }));
         setAppointmentStep(3);
         handleInputChange({ target: { value: "Please provide the doctor's name." } } as ChangeEvent<HTMLTextAreaElement>);
-        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide the doctor's name." });
         break;
       case 3:
         setAppointmentData((prev) => ({ ...prev, doctorName: userInput }));
         setAppointmentStep(4);
         handleInputChange({ target: { value: "Please provide the doctor's phone number." } } as ChangeEvent<HTMLTextAreaElement>);
-        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide the doctor's phone number." });
         break;
       case 4:
         setAppointmentData((prev) => ({ ...prev, doctorPhone: userInput }));
@@ -112,21 +111,20 @@ export function HealthcareChat() {
 
       const successMessage = `Appointment scheduled: ${result.appointment.type} on ${result.appointment.date} at ${result.appointment.time}`;
       handleInputChange({ target: { value: successMessage } } as ChangeEvent<HTMLTextAreaElement>);
-      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: successMessage });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       handleInputChange({ target: { value: `Error: ${errorMessage}` } } as ChangeEvent<HTMLTextAreaElement>);
-      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: `Error: ${errorMessage}` });
     } finally {
       setAppointmentLoading(false);
     }
   };
 
-  // Add logging before submission to debug
   const onFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log("Submitting input:", input); // Debug log
-    handleSubmit(e);
+    handleSubmit(e, { prompt: input }); // Explicitly pass prompt
   };
 
   return (
@@ -146,7 +144,7 @@ export function HealthcareChat() {
             </Avatar>
             <h3 className="text-xl font-semibold">Welcome to MediChat</h3>
             <p className="text-muted-foreground max-w-md">
-              I’m here to help you schedule appointments, answer health questions, and provide clinic information.
+              I’m here to help you schedule appointments, answer health prompts, and provide clinic information.
               What can I assist you with today?
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-lg mt-4">
@@ -170,7 +168,7 @@ export function HealthcareChat() {
                   handleInputChange({
                     target: { value: "What are your available time slots?" },
                   } as ChangeEvent<HTMLTextAreaElement>);
-                  handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+                  handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "What are your available time slots?" });
                 }}
               >
                 <Clock className="h-4 w-4" />
@@ -183,7 +181,7 @@ export function HealthcareChat() {
                   handleInputChange({
                     target: { value: "Where is your clinic located?" },
                   } as ChangeEvent<HTMLTextAreaElement>);
-                  handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>);
+                  handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Where is your clinic located?" });
                 }}
               >
                 <MapPin className="h-4 w-4" />
@@ -201,7 +199,7 @@ export function HealthcareChat() {
               }`}
             >
               {message.content}
-              {/* Appointment cards unchanged */}
+              {/* Appointment cards omitted for brevity */}
             </div>
           </div>
         ))}
