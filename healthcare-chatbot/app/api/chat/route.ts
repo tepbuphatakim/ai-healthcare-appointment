@@ -4,19 +4,20 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { question } = await req.json();
+    const { prompt } = await req.json();
 
-    if (!question || typeof question !== "string") {
-      return new Response(JSON.stringify({ error: "No valid question provided" }), {
+    if (!prompt || typeof prompt !== "string") {
+      return new Response(JSON.stringify({ error: "No valid prompt provided" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
+    // Transform prompt to question for the external API
     const response = await fetch("http://localhost:5000/api/query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question: prompt }), // Send as { question: "user input" }
     });
 
     if (!response.ok) {
@@ -63,9 +64,14 @@ export async function POST(req: Request) {
     return result.toDataStreamResponse();
   } catch (error) {
     console.error("POST error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
