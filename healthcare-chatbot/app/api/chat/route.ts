@@ -4,20 +4,23 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { prompt } = await req.json();
+    const body = await req.json();
+    console.log("Incoming request body:", body); // Debug log
+
+    const { prompt } = body;
 
     if (!prompt || typeof prompt !== "string") {
+      console.log("Validation failed: prompt is", prompt); // Debug log
       return new Response(JSON.stringify({ error: "No valid prompt provided" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Transform prompt to question for the external API
     const response = await fetch("http://127.0.0.1:5000/api/query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: prompt }), // Send as { question: "user input" }
+      body: JSON.stringify({ question: prompt }), // Transform to question
     });
 
     if (!response.ok) {
