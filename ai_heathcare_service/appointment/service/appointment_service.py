@@ -27,7 +27,7 @@ def book_appointment_logic(appointment: AppointmentCreate, db: Session):
 
     check_available_date_data = check_avialable_date(appointment.appointment_date, db)
 
-    if not check_available_date_data:
+    if check_available_date_data:
         raise Exception("Sorry, the doctor is not for available for that day")
 
     return book_appointment_data(appointment.doctor_id, appointment.patient_id, appointment.appointment_date, db)

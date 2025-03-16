@@ -123,6 +123,7 @@ export function HealthcareChat() {
 
   const onFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
     console.log("Submitting input:", input); // Debug log
     handleSubmit(e, { prompt: input }); // Explicitly pass prompt
   };

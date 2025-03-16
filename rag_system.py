@@ -1,6 +1,7 @@
 import os
 from typing import List, Dict, Any
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import Chroma
@@ -8,6 +9,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
+
+app = Flask(__name__)
+CORS(app)
 
 class RAGSystem:
     def __init__(self, docs_dir: str = "data/docs", db_dir: str = "data/vectordb"):
@@ -116,7 +120,7 @@ class RAGSystem:
             "sources": [doc.metadata for doc in result["source_documents"]]
         }
 
-app = Flask(__name__)
+# app = Flask(__name__)
 rag_system = RAGSystem()
 rag_system.initialize()
 

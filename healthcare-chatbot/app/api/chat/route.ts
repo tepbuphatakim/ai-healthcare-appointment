@@ -6,6 +6,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     console.log("Incoming request body:", body); // Debug log
+    console.log('API URL in rourte:', process.env.NEXT_PUBLIC_API_URL);
 
     const { prompt } = body;
 

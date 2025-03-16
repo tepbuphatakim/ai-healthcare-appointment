@@ -19,6 +19,8 @@ class Patient(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     phone = Column(String, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))  # Correct reference to 'users.id'
+    user = relationship("User", back_populates="patient")
 
     appointments = relationship("Appointment", back_populates="patient")  # One-to-Many
     doctors = relationship(
@@ -75,4 +77,11 @@ class Appointment(Base):
     appointment_date = Column(DateTime)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    patient = relationship("Patient", back_populates="user", uselist=False)
 Base.metadata.create_all(bind=engine)

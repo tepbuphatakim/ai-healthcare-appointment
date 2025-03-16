@@ -14,13 +14,13 @@ def get_patients(db: Session = Depends(get_db)):
     return get_all_patients(db)
 
 
-@router.post("/create")
-def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
+# @router.post("/create")
+# def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
 
-    try:
-        new_patient = create_patient_logic(patient, db)
+#     try:
+#         new_patient = create_patient_logic(patient, db)
 
-        return {"message": "sucess", "new_patient": new_patient.id}
-    except Exception as e:
-        print(f"the server is error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {"message": "sucess", "new_patient": new_patient.id}
+#     except Exception as e:
+#         print(f"the server is error: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
