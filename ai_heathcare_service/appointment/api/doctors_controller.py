@@ -22,15 +22,15 @@ def get_doctors(db: Session = Depends(get_db)):
 
 
 # Book an appointment
-@router.post("/create")
-def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
+# @router.post("/create")
+# def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
 
-    try:
-        new_doctor = create_doctor_logic(doctor, db)
+#     try:
+#         new_doctor = create_doctor_logic(doctor, db)
 
-        return {"message": "success", "doctor_id": new_doctor.id}
-    except Exception as e:
+#         return {"message": "success", "doctor_id": new_doctor.id}
+#     except Exception as e:
 
-        print(f"the server is error: {e}")
+#         print(f"the server is error: {e}")
 
-        raise HTTPException(status_code=500, detail=str(e))
+#         raise HTTPException(status_code=500, detail=str(e))

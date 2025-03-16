@@ -1,5 +1,5 @@
 from appointment.dto import DoctorCreate
-from appointment.repository.doctors import create_doctor_data, get_all_doctors_data
+from appointment.repository.doctors_repository import create_doctor_data, get_all_doctors_data
 from sqlalchemy.orm import Session
 
 def get_all_doctors(db: Session):

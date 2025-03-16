@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from appointment.api import appointments_controller, clear_cache_controller, doctor_patient_controller, doctors_controller, patients_controller
+from appointment.api import appointments_controller, authentication_controller, clear_cache_controller, doctor_patient_controller, doctors_controller, patients_controller
 
 app = FastAPI()
 
@@ -32,4 +32,9 @@ app.include_router(
     clear_cache_controller.router,
     prefix="/cache",
     tags=["cache"],
+)
+app.include_router(
+    authentication_controller.router,
+    prefix="/auth",
+    tags=["auth"],
 )

@@ -25,3 +25,19 @@ class PatientCreate(BaseModel):
 class PatientDoctorCreate(BaseModel):
     doctor_id: int
     patient_id: int
+
+
+class UserPatientCreate(BaseModel):
+    username: str
+    password: str
+    name: str
+    phone_number: str
+
+
+class UserDTO(BaseModel):
+    username: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str

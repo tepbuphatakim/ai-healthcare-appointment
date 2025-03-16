@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 
-from appointment.core.db import get_db
+from appointment.core.db import TokenData, get_current_user, get_db
 from appointment.dto import AppointmentCreate
 from appointment.service.appointment_service import book_appointment_logic, get_all_appointment, get_appointment_by_id
 from sqlalchemy.orm import Session
@@ -9,23 +9,23 @@ router = APIRouter()
 
 
 # Retrieve all appointments
-@router.get("/")
-def get_appointments(db: Session = Depends(get_db)):
-    return get_all_appointment(db)
+# @router.get("/")
+# def get_appointments(db: Session = Depends(get_db)):
+#     return get_all_appointment(db)
 
 
 # Retrieve an appointment by ID
-@router.get("/{appointment_id}")
-def get_appointment(appointment_id: int, db: Session = Depends(get_db)):
-    return get_appointment_by_id(appointment_id)
+# @router.get("/{appointment_id}")
+# def get_appointment(appointment_id: int, db: Session = Depends(get_db)):
+#     return get_appointment_by_id(appointment_id)
 
 
 # Book an appointment
 @router.post("/book-appointment")
-def book_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
+def book_appointment(appointment: AppointmentCreate, user: TokenData = Depends(get_current_user), db: Session = Depends(get_db)):
     # error = ""
     try:
-        new_appointment = book_appointment_logic(appointment)
+        new_appointment = book_appointment_logic(appointment, db)
 
         # ai_response = chat_with_ollama(f"Confirm the appointment for {appointment.patient_name} with {appointment.doctor_name} on {appointment.appointment_date}.")
 

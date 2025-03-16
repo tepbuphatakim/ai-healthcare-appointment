@@ -26,7 +26,7 @@ export function HealthcareChat() {
     doctorName: "",
     doctorPhone: "",
     appointmentType: "General Checkup",
-    preferredDate: "2025-03-15",
+    preferredDate: new Date().toISOString().split("T")[0], // Dynamic default: today
     preferredTime: "10:30",
   });
 
@@ -64,24 +64,38 @@ export function HealthcareChat() {
         handleInputChange({ target: { value: "Please provide your phone number." } } as ChangeEvent<HTMLTextAreaElement>);
         handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide your phone number." });
         break;
-      case 2:
+      case 2: {
+        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+        if (!phoneRegex.test(userInput)) {
+          handleInputChange({ target: { value: "Please enter a valid phone number (e.g., +1234567890)." } } as ChangeEvent<HTMLTextAreaElement>);
+          handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please enter a valid phone number (e.g., +1234567890)." });
+          return;
+        }
         setAppointmentData((prev) => ({ ...prev, patientPhone: userInput }));
         setAppointmentStep(3);
         handleInputChange({ target: { value: "Please provide the doctor's name." } } as ChangeEvent<HTMLTextAreaElement>);
         handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide the doctor's name." });
         break;
+      }
       case 3:
         setAppointmentData((prev) => ({ ...prev, doctorName: userInput }));
         setAppointmentStep(4);
         handleInputChange({ target: { value: "Please provide the doctor's phone number." } } as ChangeEvent<HTMLTextAreaElement>);
         handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide the doctor's phone number." });
         break;
-      case 4:
+      case 4: {
+        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+        if (!phoneRegex.test(userInput)) {
+          handleInputChange({ target: { value: "Please enter a valid doctor phone number (e.g., +1234567890)." } } as ChangeEvent<HTMLTextAreaElement>);
+          handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please enter a valid doctor phone number (e.g., +1234567890)." });
+          return;
+        }
         setAppointmentData((prev) => ({ ...prev, doctorPhone: userInput }));
         setAppointmentStep(0);
         setIsBookingAppointment(false);
         submitAppointment();
         break;
+      }
       default:
         break;
     }
@@ -123,8 +137,11 @@ export function HealthcareChat() {
 
   const onFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Submitting input:", input); // Debug log
-    handleSubmit(e, { prompt: input }); // Explicitly pass prompt
+    if (process.env.NODE_ENV === "development") {
+      console.log("Submitting input:", input);
+    }
+    // Ensure the prompt is sent explicitly
+    handleSubmit(e, { prompt: input });
   };
 
   return (
@@ -199,7 +216,6 @@ export function HealthcareChat() {
               }`}
             >
               {message.content}
-              {/* Appointment cards omitted for brevity */}
             </div>
           </div>
         ))}
