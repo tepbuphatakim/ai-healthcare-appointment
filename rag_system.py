@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict, Any
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import cross_origin
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import Chroma
@@ -11,7 +11,6 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
 app = Flask(__name__)
-CORS(app)
 
 class RAGSystem:
     def __init__(self, docs_dir: str = "data/docs", db_dir: str = "data/vectordb"):
@@ -125,6 +124,7 @@ rag_system = RAGSystem()
 rag_system.initialize()
 
 @app.route('/api/query', methods=['POST'])
+@cross_origin()
 def api_query():
     """API endpoint for querying the RAG system."""
     data = request.json
@@ -138,6 +138,7 @@ def api_query():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
+@cross_origin()
 def api_health():
     """API endpoint for checking system health."""
     return jsonify({
