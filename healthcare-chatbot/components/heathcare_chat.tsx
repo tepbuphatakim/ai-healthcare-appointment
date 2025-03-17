@@ -1,147 +1,67 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { useState, useRef, useEffect, ChangeEvent, FormEvent } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, Calendar, Clock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export function HealthcareChat() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
-    api: "/api/chat",
-  });
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [appointmentLoading, setAppointmentLoading] = useState(false);
+  const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([]);
+  const [input, setInput] = useState(""); // State for textarea input
+  const [isLoading, setIsLoading] = useState(false); // Loading state for API call
 
-  const [isBookingAppointment, setIsBookingAppointment] = useState(false);
-  const [appointmentStep, setAppointmentStep] = useState<number>(0);
-  const [appointmentData, setAppointmentData] = useState({
-    patientName: "",
-    patientPhone: "",
-    doctorName: "",
-    doctorPhone: "",
-    appointmentType: "General Checkup",
-    preferredDate: new Date().toISOString().split("T")[0], // Dynamic default: today
-    preferredTime: "10:30",
-  });
-
+  // Scroll to the latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (messages.some((m) => m.role === "user")) {
-      setShowWelcome(false);
-    }
-  }, [messages]);
+  // Handle form submission
+  const handleSend = async () => {
+    if (!input.trim()) return; // Ignore empty input
 
-  useEffect(() => {
-    if (isBookingAppointment && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === "user" && lastMessage.content.trim()) {
-        handleAppointmentInput(lastMessage.content);
-      }
-    }
-  }, [messages]);
+    const userMessage = { id: Date.now().toString(), role: "user" as const, content: input };
+    setMessages((prev) => [...prev, userMessage]); // Add user message to chat
+    setInput(""); // Clear textarea
+    setShowWelcome(false); // Hide welcome message
+    setIsLoading(true); // Show loading state
 
-  const startAppointmentBooking = () => {
-    setIsBookingAppointment(true);
-    setAppointmentStep(1);
-    handleInputChange({ target: { value: "Please provide your name." } } as ChangeEvent<HTMLTextAreaElement>);
-    handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide your name." });
-  };
-
-  const handleAppointmentInput = (userInput: string) => {
-    switch (appointmentStep) {
-      case 1:
-        setAppointmentData((prev) => ({ ...prev, patientName: userInput }));
-        setAppointmentStep(2);
-        handleInputChange({ target: { value: "Please provide your phone number." } } as ChangeEvent<HTMLTextAreaElement>);
-        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide your phone number." });
-        break;
-      case 2: {
-        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-        if (!phoneRegex.test(userInput)) {
-          handleInputChange({ target: { value: "Please enter a valid phone number (e.g., +1234567890)." } } as ChangeEvent<HTMLTextAreaElement>);
-          handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please enter a valid phone number (e.g., +1234567890)." });
-          return;
-        }
-        setAppointmentData((prev) => ({ ...prev, patientPhone: userInput }));
-        setAppointmentStep(3);
-        handleInputChange({ target: { value: "Please provide the doctor's name." } } as ChangeEvent<HTMLTextAreaElement>);
-        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide the doctor's name." });
-        break;
-      }
-      case 3:
-        setAppointmentData((prev) => ({ ...prev, doctorName: userInput }));
-        setAppointmentStep(4);
-        handleInputChange({ target: { value: "Please provide the doctor's phone number." } } as ChangeEvent<HTMLTextAreaElement>);
-        handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please provide the doctor's phone number." });
-        break;
-      case 4: {
-        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-        if (!phoneRegex.test(userInput)) {
-          handleInputChange({ target: { value: "Please enter a valid doctor phone number (e.g., +1234567890)." } } as ChangeEvent<HTMLTextAreaElement>);
-          handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Please enter a valid doctor phone number (e.g., +1234567890)." });
-          return;
-        }
-        setAppointmentData((prev) => ({ ...prev, doctorPhone: userInput }));
-        setAppointmentStep(0);
-        setIsBookingAppointment(false);
-        submitAppointment();
-        break;
-      }
-      default:
-        break;
-    }
-  };
-
-  const submitAppointment = async () => {
-    setAppointmentLoading(true);
     try {
-      const payload = {
-        appointmentType: appointmentData.appointmentType,
-        preferredDate: appointmentData.preferredDate,
-        preferredTime: appointmentData.preferredTime,
-        patientName: appointmentData.patientName,
-        additionalNotes: `Patient Phone: ${appointmentData.patientPhone}, Doctor: ${appointmentData.doctorName}, Doctor Phone: ${appointmentData.doctorPhone}`,
-      };
-
-      const response = await fetch("/api/appointment", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ prompt: input }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(result.details || result.error || "Failed to create appointment");
+        throw new Error(data.error || "Failed to get response");
       }
 
-      const successMessage = `Appointment scheduled: ${result.appointment.type} on ${result.appointment.date} at ${result.appointment.time}`;
-      handleInputChange({ target: { value: successMessage } } as ChangeEvent<HTMLTextAreaElement>);
-      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: successMessage });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
-      handleInputChange({ target: { value: `Error: ${errorMessage}` } } as ChangeEvent<HTMLTextAreaElement>);
-      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: `Error: ${errorMessage}` });
+      // Add assistant response to messages
+      const assistantMessage = { id: (Date.now() + 1).toString(), role: "assistant" as const, content: data.answer || data };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const errorMessage = {
+        id: (Date.now() + 2).toString(),
+        role: "assistant" as const,
+        content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setAppointmentLoading(false);
+      setIsLoading(false); // Reset loading state
     }
   };
 
-  const onFormSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (process.env.NODE_ENV === "development") {
-      console.log("Submitting input:", input);
+  // Handle Enter key press
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // Prevent newline
+      handleSend();
     }
-    // Ensure the prompt is sent explicitly
-    handleSubmit(e, { prompt: input });
   };
 
   return (
@@ -154,7 +74,7 @@ export function HealthcareChat() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {showWelcome && (
+        {showWelcome && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
             <Avatar className="h-16 w-16 bg-primary/10">
               <Calendar className="h-8 w-8 text-primary" />
@@ -165,42 +85,15 @@ export function HealthcareChat() {
               What can I assist you with today?
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-lg mt-4">
-              <Button
-                variant="outline"
-                className="flex items-center justify-start gap-2"
-                onClick={startAppointmentBooking}
-                disabled={isLoading || appointmentLoading}
-              >
+              <Button variant="outline" className="flex items-center justify-start gap-2" disabled>
                 <Calendar className="h-4 w-4" />
-                {isLoading || appointmentLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <span>Appointment</span>
-                )}
+                <span>Appointment</span>
               </Button>
-              <Button
-                variant="outline"
-                className="flex items-center justify-start gap-2"
-                onClick={() => {
-                  handleInputChange({
-                    target: { value: "What are your available time slots?" },
-                  } as ChangeEvent<HTMLTextAreaElement>);
-                  handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "What are your available time slots?" });
-                }}
-              >
+              <Button variant="outline" className="flex items-center justify-start gap-2" disabled>
                 <Clock className="h-4 w-4" />
                 <span>Check availability</span>
               </Button>
-              <Button
-                variant="outline"
-                className="flex items-center justify-start gap-2"
-                onClick={() => {
-                  handleInputChange({
-                    target: { value: "Where is your clinic located?" },
-                  } as ChangeEvent<HTMLTextAreaElement>);
-                  handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>, { prompt: "Where is your clinic located?" });
-                }}
-              >
+              <Button variant="outline" className="flex items-center justify-start gap-2" disabled>
                 <MapPin className="h-4 w-4" />
                 <span>Find location</span>
               </Button>
@@ -222,16 +115,8 @@ export function HealthcareChat() {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-muted max-w-[80%] rounded-lg p-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex justify-center">
-            <div className="bg-destructive/10 text-destructive max-w-[80%] rounded-lg p-4">
-              An error occurred: {error.message}. Please try again.
+            <div className="bg-muted rounded-lg p-4">
+              <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           </div>
         )}
@@ -240,27 +125,18 @@ export function HealthcareChat() {
       </div>
 
       <div className="p-4 border-t border-slate-200">
-        <form onSubmit={onFormSubmit} className="flex gap-2">
+        <div className="flex gap-2">
           <Textarea
-            value={input}
-            onChange={handleInputChange}
             placeholder="Ask about appointments, health info, or clinic details..."
             className="flex-1 min-h-[60px] max-h-[120px]"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
+          <Button size="icon" onClick={handleSend} disabled={isLoading || !input.trim()}>
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
-        </form>
+        </div>
       </div>
     </div>
   );
