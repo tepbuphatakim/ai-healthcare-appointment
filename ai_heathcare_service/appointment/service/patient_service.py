@@ -1,5 +1,5 @@
 from appointment.dto import PatientCreate
-from appointment.repository.patient import create_patient_data, get_all_patients_data
+from appointment.repository.patient_repository import create_patient_data, get_all_patients_data
 from sqlalchemy.orm import Session
 
 

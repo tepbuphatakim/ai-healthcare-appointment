@@ -4,8 +4,12 @@ from pydantic import BaseModel, Field
 
 # Define request schema
 class AppointmentCreate(BaseModel):
-    patient_id: int
-    doctor_id: int
+    # patient_id: int
+    # doctor_id: int
+    patient_name: str
+    patient_phone: str
+    doctor_name: str
+    doctor_phone: str
     appointment_date: datetime.datetime = Field(
         default_factory=lambda: datetime.datetime.now(datetime.UTC)
         + datetime.timedelta(hours=7)
