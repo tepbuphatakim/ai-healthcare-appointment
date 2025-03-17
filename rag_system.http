@@ -1,6 +1,0 @@
-POST http://localhost:5000/api/query
-Content-Type: application/json
-
-{
-    "question": "Give me doctor of Women's Health Center"
-}

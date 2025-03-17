@@ -1,7 +1,0 @@
-__pycache__/
-venv/
-vectordb/
-**/env/
-*.zip
-**/node_modules
-**/.vscode/
