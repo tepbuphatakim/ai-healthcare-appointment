@@ -1,19 +1,32 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Calendar, Clock, MapPin } from "lucide-react";
+import { Send, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
 
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ApiResponse {
+  message?: string;
+  session_id?: string;
+  confirmation?: string;
+  document?: string;
+  error?: string;
+}
+
 export function HealthcareChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [messages, setMessages] = useState<
-    { id: string; role: "user" | "assistant"; content: string }[]
-  >([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [bookingSessionId, setBookingSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -22,33 +35,49 @@ export function HealthcareChat() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { id: Date.now().toString(), role: "user", content: input };
+    const userMessage: Message = { id: Date.now().toString(), role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setShowWelcome(false);
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const field = bookingSessionId ? getFieldForStep() : "prompt";
+      const body = bookingSessionId
+        ? { session_id: bookingSessionId, [field]: input }
+        : { prompt: input };
+      const endpoint = bookingSessionId ? "/api/appointment" : "/api/chat";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      const data: ApiResponse = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || data.error) {
         throw new Error(data.error || "Failed to get response");
       }
 
-      const assistantMessage = {
+      const content = data.confirmation
+        ? `${data.confirmation}${data.document ? ` (PDF: ${data.document})` : ""}`
+        : data.message || "Response received";
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.answer || data,
+        content,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      if (bookingSessionId) {
+        if (data.session_id) setBookingSessionId(data.session_id);
+        if (data.message === "Appointment booked successfully" || data.confirmation) {
+          setBookingSessionId(null);
+        }
+      }
     } catch (error) {
-      const errorMessage = {
+      const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
         role: "assistant",
         content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
@@ -66,43 +95,35 @@ export function HealthcareChat() {
     }
   };
 
-  // New function to handle booking
   const handleBookAppointment = async () => {
     setIsLoading(true);
     setShowWelcome(false);
-
-    // Hardcoded booking for testing (replace with form input later)
-    const bookingData = {
-      name: "Jane Doe",
-      doctor: "Dr. Sopheak",
-      date: "2025-03-18",
-      time: "10:00 AM",
-    };
 
     try {
       const response = await fetch("/api/appointment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify({}),
       });
 
-      const data = await response.json();
+      const data: ApiResponse = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to book appointment");
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to start booking");
       }
 
-      const assistantMessage = {
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `Appointment booked successfully!\n\n${data.confirmation}`,
+        content: data.message || "Let's start booking your appointment.",
       };
       setMessages((prev) => [...prev, assistantMessage]);
+      setBookingSessionId(data.session_id || null);
     } catch (error) {
-      const errorMessage = {
+      const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
         role: "assistant",
-        content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
+        content: `Error: ${error instanceof Error ? error.message : "Failed to initiate booking"}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -110,12 +131,23 @@ export function HealthcareChat() {
     }
   };
 
+  const getFieldForStep = () => {
+    const lastAssistantMessage = messages
+      .filter((m) => m.role === "assistant")
+      .pop()?.content.toLowerCase() || "";
+    if (lastAssistantMessage.includes("name")) return "name";
+    if (lastAssistantMessage.includes("doctor")) return "doctor";
+    if (lastAssistantMessage.includes("date")) return "date";
+    if (lastAssistantMessage.includes("time")) return "time";
+    return "input";
+  };
+
   return (
     <div className="flex flex-col h-[600px]">
       <div className="p-4 border-b border-slate-200 bg-slate-50">
         <h2 className="font-semibold">MediChat - Healthcare Assistant</h2>
         <p className="text-sm text-muted-foreground">
-          Schedule appointments, get health info, or find clinic details
+          Schedule appointments with ease
         </p>
       </div>
 
@@ -127,36 +159,17 @@ export function HealthcareChat() {
             </Avatar>
             <h3 className="text-xl font-semibold">Welcome to MediChat</h3>
             <p className="text-muted-foreground max-w-md">
-              I’m here to help you schedule appointments, answer health prompts, and provide clinic
-              information. What can I assist you with today?
+              I’m here to help you schedule appointments with our doctors. Click below to start!
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-lg mt-4">
-              <Button
-                variant="outline"
-                className="flex items-center justify-start gap-2"
-                onClick={handleBookAppointment} // Enable and link to booking function
-                disabled={isLoading}
-              >
-                <Calendar className="h-4 w-4" />
-                <span>Appointment</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex items-center justify-start gap-2"
-                disabled
-              >
-                <Clock className="h-4 w-4" />
-                <span>Check availability</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex items-center justify-start gap-2"
-                disabled
-              >
-                <MapPin className="h-4 w-4" />
-                <span>Find location</span>
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              className="flex items-center justify-start gap-2"
+              onClick={handleBookAppointment}
+              disabled={isLoading}
+            >
+              <Calendar className="h-4 w-4" />
+              <span>Book Appointment</span>
+            </Button>
           </div>
         )}
 
@@ -189,7 +202,11 @@ export function HealthcareChat() {
       <div className="p-4 border-t border-slate-200">
         <div className="flex gap-2">
           <Textarea
-            placeholder="Ask about appointments, health info, or clinic details..."
+            placeholder={
+              bookingSessionId
+                ? "Enter your response..."
+                : "Type to start booking..."
+            }
             className="flex-1 min-h-[60px] max-h-[120px]"
             value={input}
             onChange={(e) => setInput(e.target.value)}
