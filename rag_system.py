@@ -9,8 +9,13 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
+from datetime import datetime
 
 app = Flask(__name__)
+
+# Simple in-memory store for appointments (replace with a database in production)
+appointments: List[Dict[str, Any]] = []
+
 
 class RAGSystem:
     def __init__(self, docs_dir: str = "data/docs", db_dir: str = "data/vectordb"):
@@ -19,7 +24,7 @@ class RAGSystem:
         self.db_dir = db_dir
         self.vectorstore = None
         self.qa_chain = None
-        
+
         # Create directories if they don't exist
         os.makedirs(docs_dir, exist_ok=True)
         os.makedirs(db_dir, exist_ok=True)
@@ -50,7 +55,7 @@ class RAGSystem:
         embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
-        
+
         self.vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
@@ -130,31 +135,74 @@ def api_query():
     data = request.json
     if not data or 'question' not in data:
         return jsonify({"error": "Missing 'question' in request"}), 400
-    
+
     try:
         result = rag_system.query(data['question'])
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# Booking Appointment Endpoint
+@app.route('/api/book-appointment', methods=['POST'])
+@cross_origin()
+def api_book_appointment():
+    """API endpoint for booking an appointment."""
+    data = request.json
+    if not data or 'doctor' not in data or 'patient_name' not in data or 'appointment_time' not in data:
+        return jsonify({"error": "Missing required fields: 'doctor', 'patient_name', 'appointment_time'"}), 400
+
+    doctor = data['doctor']
+    patient_name = data['patient_name']
+    try:
+        appointment_time = datetime.strptime(data['appointment_time'], '%Y-%m-%d %H:%M')
+    except ValueError:
+        return jsonify({"error": "Invalid 'appointment_time' format. Use 'YYYY-MM-DD HH:MM'"}), 400
+
+    # Basic validation (expand as needed based on doctor availability from RAG data)
+    if appointment_time < datetime.now():
+        return jsonify({"error": "Cannot book appointments in the past"}), 400
+
+    # Simulate booking (replace with actual logic if integrated with a database)
+    appointment = {
+        "doctor": doctor,
+        "patient_name": patient_name,
+        "appointment_time": appointment_time.strftime('%Y-%m-%d %H:%M'),
+        "status": "confirmed"
+    }
+    appointments.append(appointment)
+
+    return jsonify({
+        "message": f"Appointment booked with {doctor} for {patient_name} on {appointment_time.strftime('%Y-%m-%d %H:%M')}",
+        "appointment": appointment
+    }), 201
+
+
+# Health Check Endpoint
 @app.route('/api/health', methods=['GET'])
 @cross_origin()
 def api_health():
     """API endpoint for checking system health."""
     return jsonify({
         "status": "healthy",
-        "system_ready": rag_system.qa_chain is not None
+        "system_ready": rag_system.qa_chain is not None,
+        "appointments_count": len(appointments)
     })
+
 
 def main():
     # Run the Flask app
     print("\nStarting RAG API server on http://localhost:5000")
     print("Available endpoints:")
     print("  - POST /api/query")
+    print("  - POST /api/book-appointment")
     print("  - GET /api/health")
     print("\nExample usage:")
     print('  curl -X POST http://localhost:5000/api/query -H "Content-Type: application/json" -d \'{"question": "When does Dr. Sopheak work?"}\'')
+    print(
+        '  curl -X POST http://localhost:5000/api/book-appointment -H "Content-Type: application/json" -d \'{"doctor": "Dr. Sopheak", "patient_name": "John Doe", "appointment_time": "2025-03-19 10:00"}\'')
     app.run(host='0.0.0.0', port=5000)
 
+
 if __name__ == "__main__":
-    main() 
+    main()
