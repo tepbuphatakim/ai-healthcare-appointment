@@ -12,10 +12,11 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from fpdf import FPDF
 
-app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})  # Specific origin for Next.js
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Simulated doctor availability
+app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+
 DOCTOR_AVAILABILITY = {
     "Dr. Sopheak": {
         "specialization": "Cardiology",
@@ -163,9 +164,18 @@ def api_book_appointment():
         }), 200
 
     elif step == 2:
-        doctor = data.get("doctor", "").strip()
-        if doctor not in DOCTOR_AVAILABILITY:
+        doctor_input = (data.get("doctor") or data.get("input", "")).strip().lower()
+        print(f"Received data: {data}")
+        print(f"Doctor input: '{doctor_input}'")
+        doctor = None
+        for key in DOCTOR_AVAILABILITY.keys():
+            print(f"Checking against: '{key.lower()}' or '{key.lower().replace('dr.', '').strip()}'")
+            if doctor_input == key.lower() or doctor_input == key.lower().replace("dr.", "").strip():
+                doctor = key
+                break
+        if not doctor:
             doctors = ", ".join(DOCTOR_AVAILABILITY.keys())
+            print(f"No match found, returning error: {doctors}")
             return jsonify({"message": f"Please choose a valid doctor: {doctors}."}), 400
         session["doctor"] = doctor
         session["step"] = 3
@@ -176,10 +186,15 @@ def api_book_appointment():
         }), 200
 
     elif step == 3:
-        date = data.get("date", "").strip()
+        date = (data.get("date") or data.get("input", "")).strip()
         doctor = session["doctor"]
+        print(f"Step 3 - Received data: {data}")
+        print(f"Session: {session}")
+        print(f"Doctor: '{doctor}', Date input: '{date}'")
+        print(f"Available dates: {list(DOCTOR_AVAILABILITY[doctor]['working_hours'].keys())}")
         if date not in DOCTOR_AVAILABILITY[doctor]["working_hours"]:
             dates = ", ".join(DOCTOR_AVAILABILITY[doctor]["working_hours"].keys())
+            print(f"Date '{date}' not found in available dates")
             return jsonify({"message": f"Please choose a valid date for Dr. {doctor}: {dates}."}), 400
         session["date"] = date
         session["step"] = 4

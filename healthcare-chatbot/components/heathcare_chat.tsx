@@ -47,6 +47,7 @@ export function HealthcareChat() {
         ? { session_id: bookingSessionId, [field]: input }
         : { prompt: input };
       const endpoint = bookingSessionId ? "/api/appointment" : "/api/chat";
+      console.log("Sending to endpoint:", endpoint, "with body:", body); // Debug payload
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -55,6 +56,7 @@ export function HealthcareChat() {
       });
 
       const data: ApiResponse = await response.json();
+      console.log("Received response:", data); // Debug response
 
       if (!response.ok || data.error) {
         throw new Error(data.error || "Failed to get response");
@@ -135,11 +137,13 @@ export function HealthcareChat() {
     const lastAssistantMessage = messages
       .filter((m) => m.role === "assistant")
       .pop()?.content.toLowerCase() || "";
+    console.log("Last assistant message:", lastAssistantMessage); // Debug
+
     if (lastAssistantMessage.includes("name")) return "name";
-    if (lastAssistantMessage.includes("doctor")) return "doctor";
+    if (lastAssistantMessage.includes("doctor")) return "doctor"; // Should match here
     if (lastAssistantMessage.includes("date")) return "date";
     if (lastAssistantMessage.includes("time")) return "time";
-    return "input";
+    return "input"; // Fallback
   };
 
   return (
