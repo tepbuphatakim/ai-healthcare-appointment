@@ -44,7 +44,11 @@ export function HealthcareChat() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const userMessage: Message = { id: Date.now().toString(), role: "user", content: input };
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input,
+    };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setShowWelcome(false);
@@ -52,7 +56,7 @@ export function HealthcareChat() {
 
     try {
       if (!bookingSessionId) {
-        // Regular chat mode
+        // Chat mode
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,17 +85,31 @@ export function HealthcareChat() {
             nextStep = "doctor";
             setMessages((prev) => [
               ...prev,
-              { id: (Date.now() + 1).toString(), role: "assistant", content: "Please enter the doctor's name." },
+              {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "Please enter the doctor's name.",
+              },
             ]);
+            setBookingData(updatedBookingData);
+            setBookingStep(nextStep);
             break;
+
           case "doctor":
             updatedBookingData.doctor = input;
             nextStep = "time";
             setMessages((prev) => [
               ...prev,
-              { id: (Date.now() + 1).toString(), role: "assistant", content: "Please enter the appointment time (e.g., 2025-03-20 10:00)." },
+              {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "Please enter the appointment time (e.g., 2025-03-20 10:00).",
+              },
             ]);
+            setBookingData(updatedBookingData);
+            setBookingStep(nextStep);
             break;
+
           case "time":
             updatedBookingData.appointment_time = input;
             nextStep = "confirm";
@@ -103,7 +121,10 @@ export function HealthcareChat() {
                 content: `Confirm your appointment: Patient: ${updatedBookingData.patient_name}, Doctor: ${updatedBookingData.doctor}, Time: ${input}. Type "yes" to confirm.`,
               },
             ]);
+            setBookingData(updatedBookingData);
+            setBookingStep(nextStep);
             break;
+
           case "confirm":
             if (input.toLowerCase() === "yes") {
               const response = await fetch("/api/appointment", {
@@ -117,29 +138,30 @@ export function HealthcareChat() {
                 throw new Error(data.error || "Failed to book appointment");
               }
 
-              // Use the exact message from the backend
-              setMessages((prev) => [
-                ...prev,
-                { id: (Date.now() + 1).toString(), role: "assistant", content: data.message || "Appointment booked." },
-              ]);
+              const assistantMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: data.message || "Appointment booked.",
+              };
+              setMessages((prev) => [...prev, assistantMessage]);
               setBookingSessionId(null);
               setBookingData({});
               setBookingStep(null);
             } else {
-              setMessages((prev) => [
-                ...prev,
-                { id: (Date.now() + 1).toString(), role: "assistant", content: "Booking canceled. Start over by clicking 'Book Appointment'." },
-              ]);
+              const cancelMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "Booking canceled. Start over by clicking the appointment button.",
+              };
+              setMessages((prev) => [...prev, cancelMessage]);
               setBookingSessionId(null);
               setBookingData({});
               setBookingStep(null);
             }
             break;
-        }
 
-        if (bookingStep !== "confirm") {
-          setBookingData(updatedBookingData);
-          setBookingStep(nextStep);
+          default:
+            throw new Error("Invalid booking step");
         }
       }
     } catch (error) {
@@ -166,12 +188,15 @@ export function HealthcareChat() {
     setShowWelcome(false);
 
     try {
-      setBookingSessionId(Date.now().toString()); // Temporary session ID
+      const sessionId = Date.now().toString();
+      setBookingSessionId(sessionId);
       setBookingStep("name");
-      setMessages((prev) => [
-        ...prev,
-        { id: (Date.now() + 1).toString(), role: "assistant", content: "Please enter your name." },
-      ]);
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Please enter your name.",
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
@@ -188,9 +213,7 @@ export function HealthcareChat() {
     <div className="flex flex-col h-[600px]">
       <div className="p-4 border-b border-slate-200 bg-slate-50">
         <h2 className="font-semibold">MediChat - Healthcare Assistant</h2>
-        <p className="text-sm text-muted-foreground">
-          Schedule appointments with ease
-        </p>
+        <p className="text-sm text-muted-foreground">Schedule appointments with ease</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -244,18 +267,27 @@ export function HealthcareChat() {
       <div className="p-4 border-t border-slate-200">
         <div className="flex gap-2">
           <Textarea
-            placeholder={
-              bookingSessionId
-                ? "Enter your response..."
-                : "Type to start chatting..."
-            }
+            placeholder={bookingSessionId ? "Enter your response..." : "Type to start chatting..."}
             className="flex-1 min-h-[60px] max-h-[120px]"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <Button size="icon" onClick={handleSend} disabled={isLoading || !input.trim()}>
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            title="Send message"
+          >
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          </Button>
+          <Button
+            size="icon"
+            onClick={handleBookAppointment}
+            disabled={isLoading}
+            title="Book appointment"
+          >
+            <Calendar className="h-5 w-5" />
           </Button>
         </div>
       </div>
