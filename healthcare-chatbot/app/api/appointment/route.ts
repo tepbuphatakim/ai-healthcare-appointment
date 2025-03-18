@@ -1,46 +1,53 @@
-import { NextResponse } from "next/server";
-
-// Define the expected request body structure
-interface AppointmentRequest {
-  appointmentType: string; // e.g., "General Checkup", "Specialist Visit"
-  preferredDate: string;   // e.g., "2025-03-15"
-  preferredTime: string;   // e.g., "10:30"
-  patientName?: string;    // Optional, could be collected from user
-  additionalNotes?: string; // Optional notes
-}
-
-// Define the response structure from the external API (adjust based on actual API)
-interface AppointmentResponse {
-  id: string;
-  appointmentType: string;
-  date: string;
-  time: string;
-  status: string;
-  message?: string;
-}
-
-// External API URL (move to environment variable in production)
-const API_URL = process.env.APPOINTMENT_API_URL || "http://127.0.0.1:8000/appointments";
+export const maxDuration = 30; // Vercel timeout limit in seconds
 
 export async function POST(req: Request) {
   try {
-    // Parse the incoming request body
-    const body: AppointmentRequest = await req.json();
+    // Parse the request body
+    const body = await req.json();
+    const { name, doctor, date, time } = body;
 
-    // Validate required fields with stricter checks
-    const { appointmentType, preferredDate, preferredTime } = body;
-    if (!appointmentType?.trim() || !preferredDate?.trim() || !preferredTime?.trim()) {
-      return NextResponse.json(
-        { error: "Missing or empty required fields: appointmentType, preferredDate, or preferredTime" },
-        { status: 400 }
+    // Validate required fields
+    if (!name || !doctor || !date || !time) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: name, doctor, date, time" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
       );
     }
 
-    // Optional: Validate date and time formats
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate)) {
-      return NextResponse.json(
-        { error: "Invalid date format. Use YYYY-MM-DD" },
-        { status: 400 }
-      );
+    // Make request to Flask RAG API
+    const apiUrl = "http://127.0.0.1:5000/api/book-appointment"; // Update this for production
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, doctor, date, time }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Booking error: ${response.status} - ${errorData.error || response.statusText}`);
     }
-    if (!/^\d{2}:\d{2}$/.test(preferredTime)) {
+
+    // Get the response body as JSON
+    const data = await response.json();
+
+    // Return the API response to the client
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Booking error:", error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+}

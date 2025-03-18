@@ -9,24 +9,24 @@ import { Avatar } from "@/components/ui/avatar";
 export function HealthcareChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([]);
-  const [input, setInput] = useState(""); // State for textarea input
-  const [isLoading, setIsLoading] = useState(false); // Loading state for API call
+  const [messages, setMessages] = useState<
+    { id: string; role: "user" | "assistant"; content: string }[]
+  >([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Scroll to the latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Handle form submission
   const handleSend = async () => {
-    if (!input.trim()) return; // Ignore empty input
+    if (!input.trim()) return;
 
-    const userMessage = { id: Date.now().toString(), role: "user" as const, content: input };
-    setMessages((prev) => [...prev, userMessage]); // Add user message to chat
-    setInput(""); // Clear textarea
-    setShowWelcome(false); // Hide welcome message
-    setIsLoading(true); // Show loading state
+    const userMessage = { id: Date.now().toString(), role: "user", content: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setShowWelcome(false);
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/chat", {
@@ -41,26 +41,72 @@ export function HealthcareChat() {
         throw new Error(data.error || "Failed to get response");
       }
 
-      // Add assistant response to messages
-      const assistantMessage = { id: (Date.now() + 1).toString(), role: "assistant" as const, content: data.answer || data };
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.answer || data,
+      };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       const errorMessage = {
         id: (Date.now() + 2).toString(),
-        role: "assistant" as const,
+        role: "assistant",
         content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false); // Reset loading state
+      setIsLoading(false);
     }
   };
 
-  // Handle Enter key press
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault(); // Prevent newline
+      e.preventDefault();
       handleSend();
+    }
+  };
+
+  // New function to handle booking
+  const handleBookAppointment = async () => {
+    setIsLoading(true);
+    setShowWelcome(false);
+
+    // Hardcoded booking for testing (replace with form input later)
+    const bookingData = {
+      name: "Jane Doe",
+      doctor: "Dr. Sopheak",
+      date: "2025-03-18",
+      time: "10:00 AM",
+    };
+
+    try {
+      const response = await fetch("/api/appointment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to book appointment");
+      }
+
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Appointment booked successfully!\n\n${data.confirmation}`,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const errorMessage = {
+        id: (Date.now() + 2).toString(),
+        role: "assistant",
+        content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,19 +127,32 @@ export function HealthcareChat() {
             </Avatar>
             <h3 className="text-xl font-semibold">Welcome to MediChat</h3>
             <p className="text-muted-foreground max-w-md">
-              I’m here to help you schedule appointments, answer health prompts, and provide clinic information.
-              What can I assist you with today?
+              I’m here to help you schedule appointments, answer health prompts, and provide clinic
+              information. What can I assist you with today?
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-lg mt-4">
-              <Button variant="outline" className="flex items-center justify-start gap-2" disabled>
+              <Button
+                variant="outline"
+                className="flex items-center justify-start gap-2"
+                onClick={handleBookAppointment} // Enable and link to booking function
+                disabled={isLoading}
+              >
                 <Calendar className="h-4 w-4" />
                 <span>Appointment</span>
               </Button>
-              <Button variant="outline" className="flex items-center justify-start gap-2" disabled>
+              <Button
+                variant="outline"
+                className="flex items-center justify-start gap-2"
+                disabled
+              >
                 <Clock className="h-4 w-4" />
                 <span>Check availability</span>
               </Button>
-              <Button variant="outline" className="flex items-center justify-start gap-2" disabled>
+              <Button
+                variant="outline"
+                className="flex items-center justify-start gap-2"
+                disabled
+              >
                 <MapPin className="h-4 w-4" />
                 <span>Find location</span>
               </Button>
@@ -102,7 +161,10 @@ export function HealthcareChat() {
         )}
 
         {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            key={message.id}
+            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+          >
             <div
               className={`max-w-[80%] rounded-lg p-4 ${
                 message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"

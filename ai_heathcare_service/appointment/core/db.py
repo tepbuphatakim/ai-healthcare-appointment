@@ -25,7 +25,7 @@ Base = declarative_base()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
-DATABASE_URL = "postgresql://postgres:123456@localhost/hospital_db"
+DATABASE_URL = "postgresql://postgres:Vsalvsal333+@localhost/hospital_db"
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
