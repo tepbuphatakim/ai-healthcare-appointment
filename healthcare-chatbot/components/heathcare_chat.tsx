@@ -13,11 +13,18 @@ interface Message {
 }
 
 interface ApiResponse {
-  message?: string;
+  message?: string; // For /api/appointment and /api/book-appointment
+  answer?: string;  // For /api/chat
   session_id?: string;
   confirmation?: string;
   document?: string;
   error?: string;
+}
+
+interface BookingData {
+  patient_name?: string;
+  doctor?: string;
+  appointment_time?: string;
 }
 
 export function HealthcareChat() {
@@ -27,6 +34,8 @@ export function HealthcareChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [bookingSessionId, setBookingSessionId] = useState<string | null>(null);
+  const [bookingData, setBookingData] = useState<BookingData>({});
+  const [bookingStep, setBookingStep] = useState<"name" | "doctor" | "time" | "confirm" | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,40 +51,95 @@ export function HealthcareChat() {
     setIsLoading(true);
 
     try {
-      const field = bookingSessionId ? getFieldForStep() : "prompt";
-      const body = bookingSessionId
-        ? { session_id: bookingSessionId, [field]: input }
-        : { prompt: input };
-      const endpoint = bookingSessionId ? "/api/appointment" : "/api/chat";
-      console.log("Sending to endpoint:", endpoint, "with body:", body); // Debug payload
+      if (!bookingSessionId) {
+        // Regular chat mode
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: input }),
+        });
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+        const data: ApiResponse = await response.json();
+        if (!response.ok || data.error) {
+          throw new Error(data.error || "Failed to get chat response");
+        }
 
-      const data: ApiResponse = await response.json();
-      console.log("Received response:", data); // Debug response
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.answer || "No response from chat API",
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        // Booking mode
+        const updatedBookingData = { ...bookingData };
+        let nextStep: "doctor" | "time" | "confirm" | null = null;
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Failed to get response");
-      }
+        switch (bookingStep) {
+          case "name":
+            updatedBookingData.patient_name = input;
+            nextStep = "doctor";
+            setMessages((prev) => [
+              ...prev,
+              { id: (Date.now() + 1).toString(), role: "assistant", content: "Please enter the doctor's name." },
+            ]);
+            break;
+          case "doctor":
+            updatedBookingData.doctor = input;
+            nextStep = "time";
+            setMessages((prev) => [
+              ...prev,
+              { id: (Date.now() + 1).toString(), role: "assistant", content: "Please enter the appointment time (e.g., 2025-03-20 10:00)." },
+            ]);
+            break;
+          case "time":
+            updatedBookingData.appointment_time = input;
+            nextStep = "confirm";
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: `Confirm your appointment: Patient: ${updatedBookingData.patient_name}, Doctor: ${updatedBookingData.doctor}, Time: ${input}. Type "yes" to confirm.`,
+              },
+            ]);
+            break;
+          case "confirm":
+            if (input.toLowerCase() === "yes") {
+              const response = await fetch("/api/appointment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedBookingData),
+              });
 
-      const content = data.confirmation
-        ? `${data.confirmation}${data.document ? ` (PDF: ${data.document})` : ""}`
-        : data.message || "Response received";
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+              const data: ApiResponse = await response.json();
+              if (!response.ok || data.error) {
+                throw new Error(data.error || "Failed to book appointment");
+              }
 
-      if (bookingSessionId) {
-        if (data.session_id) setBookingSessionId(data.session_id);
-        if (data.message === "Appointment booked successfully" || data.confirmation) {
-          setBookingSessionId(null);
+              // Use the exact message from the backend
+              setMessages((prev) => [
+                ...prev,
+                { id: (Date.now() + 1).toString(), role: "assistant", content: data.message || "Appointment booked." },
+              ]);
+              setBookingSessionId(null);
+              setBookingData({});
+              setBookingStep(null);
+            } else {
+              setMessages((prev) => [
+                ...prev,
+                { id: (Date.now() + 1).toString(), role: "assistant", content: "Booking canceled. Start over by clicking 'Book Appointment'." },
+              ]);
+              setBookingSessionId(null);
+              setBookingData({});
+              setBookingStep(null);
+            }
+            break;
+        }
+
+        if (bookingStep !== "confirm") {
+          setBookingData(updatedBookingData);
+          setBookingStep(nextStep);
         }
       }
     } catch (error) {
@@ -102,25 +166,12 @@ export function HealthcareChat() {
     setShowWelcome(false);
 
     try {
-      const response = await fetch("/api/appointment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-
-      const data: ApiResponse = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Failed to start booking");
-      }
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.message || "Let's start booking your appointment.",
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setBookingSessionId(data.session_id || null);
+      setBookingSessionId(Date.now().toString()); // Temporary session ID
+      setBookingStep("name");
+      setMessages((prev) => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: "assistant", content: "Please enter your name." },
+      ]);
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
@@ -131,19 +182,6 @@ export function HealthcareChat() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const getFieldForStep = () => {
-    const lastAssistantMessage = messages
-      .filter((m) => m.role === "assistant")
-      .pop()?.content.toLowerCase() || "";
-    console.log("Last assistant message:", lastAssistantMessage); // Debug
-
-    if (lastAssistantMessage.includes("name")) return "name";
-    if (lastAssistantMessage.includes("doctor")) return "doctor"; // Should match here
-    if (lastAssistantMessage.includes("date")) return "date";
-    if (lastAssistantMessage.includes("time")) return "time";
-    return "input"; // Fallback
   };
 
   return (
@@ -209,7 +247,7 @@ export function HealthcareChat() {
             placeholder={
               bookingSessionId
                 ? "Enter your response..."
-                : "Type to start booking..."
+                : "Type to start chatting..."
             }
             className="flex-1 min-h-[60px] max-h-[120px]"
             value={input}

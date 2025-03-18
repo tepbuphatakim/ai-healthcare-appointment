@@ -1,39 +1,34 @@
-export const maxDuration = 30; // Vercel timeout limit in seconds
+export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    // Parse the request body
     const body = await req.json();
     const prompt = body.prompt;
 
-    // Validate prompt
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       return new Response(
         JSON.stringify({ error: "A valid prompt is required" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Make request to RAG API
-    const apiUrl = "http://127.0.0.1:5000/api/query"; // Hardcoded for simplicity
+    const apiUrl = process.env.RAG_API_URL || "http://127.0.0.1:5000/api/query";
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: prompt }),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!response.ok) {
       throw new Error(`RAG API error: ${response.status} - ${response.statusText}`);
     }
 
-    // Get the response body as JSON or text
-    const data = await response.json(); // Assuming the API returns JSON; use .text() if it’s plain text
+    const data = await response.json();
+    const answer = data.answer || "No answer returned from RAG API"; // Fallback if answer is missing
 
-    // Return the API response to the client
-    return new Response(JSON.stringify(data), {
+    // Return only the answer string
+    return new Response(JSON.stringify({ answer }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -43,10 +38,7 @@ export async function POST(req: Request) {
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
       }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
